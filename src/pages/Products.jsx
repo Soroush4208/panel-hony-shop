@@ -123,6 +123,7 @@ export default function ProductsPage() {
   const handleSubmit = (values) => {
     const payload = {
       ...values,
+      category: values.category?.trim() || "",
       price: Number(values.price),
       originalPrice: values.originalPrice ? Number(values.originalPrice) : undefined,
       discount: Number(values.discount || 0),
@@ -184,7 +185,10 @@ export default function ProductsPage() {
             <TableBody>
               {products.map((product) => {
                 const catLabel =
-                  categories.find((c) => (c.id || c._id) === product.category)?.name ||
+                  categories.find(
+                    (c) =>
+                      (c.id || c._id) === product.category || c.name === product.category
+                  )?.name ||
                   product.category ||
                   "-";
                 return (
@@ -263,10 +267,21 @@ function ProductDialog({ open, onClose, onSubmit, product, loading }) {
   const [newSpecValue, setNewSpecValue] = useState("");
 
   useEffect(() => {
+    const resolveCategoryValue = () => {
+      if (!product?.category) return "";
+      const match = categories.find(
+        (c) =>
+          (c.id || c._id) === product.category ||
+          c.name === product.category
+      );
+      return match?.name || product.category;
+    };
+
     if (product) {
       setValues({
         ...emptyProduct,
         ...product,
+        category: resolveCategoryValue(),
         tags: product.tags?.join(", ") || "",
         features: product.features || [],
         specifications: product.specifications || {},
@@ -279,7 +294,7 @@ function ProductDialog({ open, onClose, onSubmit, product, loading }) {
       setValues(emptyProduct);
     }
     setTabIndex(0);
-  }, [product, open]);
+  }, [product, open, categories]);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -400,7 +415,7 @@ function ProductDialog({ open, onClose, onSubmit, product, loading }) {
                 >
                   <MenuItem value="">بدون دسته‌بندی</MenuItem>
                   {categories.map((cat) => (
-                    <MenuItem key={cat.id || cat._id} value={cat.id || cat._id}>
+                    <MenuItem key={cat.id || cat._id} value={cat.name}>
                       {cat.name}
                     </MenuItem>
                   ))}
