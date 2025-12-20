@@ -19,71 +19,74 @@ import {
   TableRow,
   TextField,
   Typography,
-  Snackbar
-} from "@mui/material";
-import { Add, Delete, Edit } from "@mui/icons-material";
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { categoryApi } from "../api/services";
-import useToast from "../hooks/useToast";
-import ConfirmDialog from "../components/ConfirmDialog";
+  Snackbar,
+} from '@mui/material';
+import { Add, Delete, Edit } from '@mui/icons-material';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { categoryApi } from '../api/services';
+import useToast from '../hooks/useToast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const emptyCategory = {
-  name: "",
+  name: '',
   order: 0,
-  isActive: true
+  isActive: true,
 };
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
   const { data: categories = [], isLoading } = useQuery({
-    queryKey: ["categories"],
-    queryFn: categoryApi.list
+    queryKey: ['categories'],
+    queryFn: categoryApi.list,
   });
   const { toast, showToast, handleClose } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [confirmState, setConfirmState] = useState({ open: false, target: null });
+  const [confirmState, setConfirmState] = useState({
+    open: false,
+    target: null,
+  });
 
   const createMutation = useMutation({
     mutationFn: categoryApi.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      showToast("دسته‌بندی ایجاد شد");
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      showToast('دسته‌بندی ایجاد شد');
       setDialogOpen(false);
     },
-    onError: () => showToast("ثبت دسته‌بندی ناموفق بود", "error")
+    onError: () => showToast('ثبت دسته‌بندی ناموفق بود', 'error'),
   });
 
   const updateMutation = useMutation({
     mutationFn: categoryApi.update,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      showToast("دسته‌بندی ویرایش شد");
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      showToast('دسته‌بندی ویرایش شد');
       setDialogOpen(false);
     },
-    onError: () => showToast("ویرایش دسته‌بندی ناموفق بود", "error")
+    onError: () => showToast('ویرایش دسته‌بندی ناموفق بود', 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: categoryApi.remove,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      showToast("دسته‌بندی حذف شد");
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      showToast('دسته‌بندی حذف شد');
       setConfirmState({ open: false, target: null });
     },
-    onError: () => showToast("حذف دسته‌بندی ناموفق بود", "error")
+    onError: () => showToast('حذف دسته‌بندی ناموفق بود', 'error'),
   });
 
-  const handleSubmit = (values) => {
+  const handleSubmit = values => {
     if (!values.name || !values.name.trim()) {
-      showToast("نام دسته‌بندی الزامی است", "error");
+      showToast('نام دسته‌بندی الزامی است', 'error');
       return;
     }
     const payload = {
       name: values.name.trim(),
       order: Number(values.order) || 0,
-      isActive: Boolean(values.isActive)
+      isActive: Boolean(values.isActive),
     };
     if (editing) {
       updateMutation.mutate({ id: editing.id || editing._id, ...payload });
@@ -102,13 +105,19 @@ export default function CategoriesPage() {
     <Box>
       <Card sx={{ borderRadius: 4, mb: 3 }}>
         <CardContent
-          sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
         >
           <Box>
             <Typography variant="h5" fontWeight={700}>
               مدیریت دسته‌بندی‌ها
             </Typography>
-            <Typography color="text.secondary">تعریف و مدیریت دسته‌بندی محصولات</Typography>
+            <Typography color="text.secondary">
+              تعریف و مدیریت دسته‌بندی محصولات
+            </Typography>
           </Box>
           <Button
             variant="contained"
@@ -137,11 +146,11 @@ export default function CategoriesPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {categories.map((cat) => (
+              {categories.map(cat => (
                 <TableRow key={cat.id || cat._id}>
                   <TableCell>{cat.name}</TableCell>
                   <TableCell>{cat.order ?? 0}</TableCell>
-                  <TableCell>{cat.isActive ? "بله" : "خیر"}</TableCell>
+                  <TableCell>{cat.isActive ? 'بله' : 'خیر'}</TableCell>
                   <TableCell align="right">
                     <IconButton
                       color="primary"
@@ -154,7 +163,9 @@ export default function CategoriesPage() {
                     </IconButton>
                     <IconButton
                       color="error"
-                      onClick={() => setConfirmState({ open: true, target: cat })}
+                      onClick={() =>
+                        setConfirmState({ open: true, target: cat })
+                      }
                     >
                       <Delete />
                     </IconButton>
@@ -167,8 +178,14 @@ export default function CategoriesPage() {
       )}
 
       <CategoryDialog
+        key={`${editing?.id || editing?._id || 'new'}-${
+          dialogOpen ? 'open' : 'closed'
+        }`}
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={() => {
+          setDialogOpen(false);
+          setEditing(null);
+        }}
         category={editing}
         onSubmit={handleSubmit}
         loading={createMutation.isPending || updateMutation.isPending}
@@ -185,7 +202,12 @@ export default function CategoriesPage() {
       />
 
       <Snackbar open={toast.open} autoHideDuration={4000} onClose={handleClose}>
-        <Alert onClose={handleClose} severity={toast.severity || "success"} variant="filled" sx={{ width: "100%" }}>
+        <Alert
+          onClose={handleClose}
+          severity={toast.severity || 'success'}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
           {toast.message}
         </Alert>
       </Snackbar>
@@ -194,29 +216,26 @@ export default function CategoriesPage() {
 }
 
 function CategoryDialog({ open, onClose, category, onSubmit, loading }) {
-  const [values, setValues] = useState(category || emptyCategory);
+  const [values, setValues] = useState(() => category || emptyCategory);
 
-  useEffect(() => {
-    if (category) setValues(category);
-    else setValues(emptyCategory);
-  }, [category, open]);
-
-  const handleChange = (event) => {
+  const handleChange = event => {
     const { name, value, type, checked } = event.target;
-    setValues((prev) => ({
+    setValues(prev => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = event => {
     event.preventDefault();
     onSubmit(values);
   };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{category ? "ویرایش دسته‌بندی" : "دسته‌بندی جدید"}</DialogTitle>
+      <DialogTitle>
+        {category ? 'ویرایش دسته‌بندی' : 'دسته‌بندی جدید'}
+      </DialogTitle>
       <DialogContent>
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
           <TextField
@@ -237,9 +256,13 @@ function CategoryDialog({ open, onClose, category, onSubmit, loading }) {
             fullWidth
             margin="normal"
           />
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
             <Typography>فعال</Typography>
-            <Switch checked={values.isActive} name="isActive" onChange={handleChange} />
+            <Switch
+              checked={values.isActive}
+              name="isActive"
+              onChange={handleChange}
+            />
           </Box>
         </Box>
       </DialogContent>
@@ -252,4 +275,3 @@ function CategoryDialog({ open, onClose, category, onSubmit, loading }) {
     </Dialog>
   );
 }
-
