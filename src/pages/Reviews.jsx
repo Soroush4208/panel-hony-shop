@@ -1,150 +1,130 @@
-import {
-  Alert,
-  Box,
-  Card,
-  CardContent,
-  IconButton,
-  LinearProgress,
-  MenuItem,
-  Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography
-} from "@mui/material";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Delete, CheckCircle, Cancel } from "@mui/icons-material";
-import { reviewsApi } from "../api/services";
-import useToast from "../hooks/useToast";
+import { Box } from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { reviewsApi } from '../api/services';
+import useToast from '../hooks/useToast';
+import PageHeader from '../components/shared/PageHeader';
+import DataTable from '../components/shared/DataTable';
+import ReviewFilters from '../components/reviews/ReviewFilters';
+import { useReviewTable } from '../components/reviews/ReviewTable';
+import { Snackbar, Alert } from '@mui/material';
 
 export default function ReviewsPage() {
   const queryClient = useQueryClient();
-  const [filters, setFilters] = useState({ status: "pending", productId: "" });
+  const [filters, setFilters] = useState({ status: 'pending', productId: '' });
+  const [orderBy, setOrderBy] = useState('');
+  const [order, setOrder] = useState('asc');
   const { toast, showToast, handleClose } = useToast();
 
   const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ["reviews", filters],
-    queryFn: () => reviewsApi.list(filters)
+    queryKey: ['reviews', filters],
+    queryFn: () => reviewsApi.list(filters),
   });
 
   const updateMutation = useMutation({
     mutationFn: reviewsApi.update,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reviews"] });
-      showToast("وضعیت نظر به‌روزرسانی شد");
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      showToast('وضعیت نظر به‌روزرسانی شد');
     },
-    onError: () => showToast("خطا در به‌روزرسانی وضعیت", "error")
+    onError: () => showToast('خطا در به‌روزرسانی وضعیت', 'error'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: reviewsApi.remove,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["reviews"] });
-      showToast("نظر حذف شد");
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      showToast('نظر حذف شد');
     },
-    onError: () => showToast("حذف نظر ناموفق بود", "error")
+    onError: () => showToast('حذف نظر ناموفق بود', 'error'),
   });
 
-  const handleFilterChange = (event) => {
+  const handleFilterChange = event => {
     const { name, value } = event.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleRequestSort = property => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const sortedReviews = [...reviews].sort((a, b) => {
+    if (!orderBy) return 0;
+
+    let aValue, bValue;
+
+    switch (orderBy) {
+      case 'name':
+        aValue = a.name || '';
+        bValue = b.name || '';
+        break;
+      case 'email':
+        aValue = a.email || '';
+        bValue = b.email || '';
+        break;
+      case 'productId':
+        aValue = a.productId || '';
+        bValue = b.productId || '';
+        break;
+      case 'rating':
+        aValue = Number(a.rating) || 0;
+        bValue = Number(b.rating) || 0;
+        break;
+      case 'status':
+        aValue = a.status || '';
+        bValue = b.status || '';
+        break;
+      default:
+        return 0;
+    }
+
+    if (typeof aValue === 'string') {
+      return order === 'asc'
+        ? aValue.localeCompare(bValue, 'fa')
+        : bValue.localeCompare(aValue, 'fa');
+    } else {
+      return order === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+  });
+
+  const columns = [
+    { id: 'name', label: 'نام', sortable: true },
+    { id: 'email', label: 'ایمیل', sortable: true },
+    { id: 'productId', label: 'محصول', sortable: true },
+    { id: 'rating', label: 'امتیاز', sortable: true },
+    { id: 'comment', label: 'متن نظر', sortable: false },
+    { id: 'status', label: 'وضعیت', sortable: true },
+    { id: 'actions', label: 'عملیات', align: 'right', sortable: false },
+  ];
+
+  const { renderRow } = useReviewTable({
+    reviews: sortedReviews,
+    onApprove: reviewId => updateMutation.mutate({ id: reviewId, status: 'approved' }),
+    onReject: reviewId => updateMutation.mutate({ id: reviewId, status: 'rejected' }),
+    onDelete: reviewId => deleteMutation.mutate(reviewId),
+  });
 
   return (
     <Box>
-      <Card sx={{ borderRadius: 4, mb: 3 }}>
-        <CardContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Typography variant="h5" fontWeight={700}>
-            مدیریت نظرات مشتریان
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2 }}>
-            <TextField
-              select
-              label="وضعیت"
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              size="small"
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value="">همه</MenuItem>
-              <MenuItem value="pending">در انتظار تأیید</MenuItem>
-              <MenuItem value="approved">تأیید شده</MenuItem>
-              <MenuItem value="rejected">رد شده</MenuItem>
-            </TextField>
-            <TextField
-              label="شناسه محصول"
-              name="productId"
-              value={filters.productId}
-              onChange={handleFilterChange}
-              size="small"
-              sx={{ minWidth: 240 }}
-              placeholder="Product ID"
-            />
-          </Box>
-        </CardContent>
-      </Card>
+      <PageHeader
+        title="مدیریت نظرات مشتریان"
+        description="بررسی و تأیید نظرات مشتریان"
+      />
 
-      {isLoading ? (
-        <LinearProgress />
-      ) : (
-        <TableContainer component={Card} sx={{ borderRadius: 4 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>نام</TableCell>
-                <TableCell>ایمیل</TableCell>
-                <TableCell>محصول</TableCell>
-                <TableCell>امتیاز</TableCell>
-                <TableCell>متن نظر</TableCell>
-                <TableCell>وضعیت</TableCell>
-                <TableCell align="right">عملیات</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {reviews.map((review) => {
-                const reviewId = review.id || review._id;
-                return (
-                  <TableRow key={reviewId} hover>
-                    <TableCell>{review.name}</TableCell>
-                    <TableCell>{review.email}</TableCell>
-                    <TableCell>{review.productId}</TableCell>
-                    <TableCell>{review.rating}/5</TableCell>
-                    <TableCell>{review.comment}</TableCell>
-                    <TableCell>{review.status}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        color="success"
-                        onClick={() =>
-                          updateMutation.mutate({ id: reviewId, status: "approved" })
-                        }
-                      >
-                        <CheckCircle />
-                      </IconButton>
-                      <IconButton
-                        color="warning"
-                        onClick={() =>
-                          updateMutation.mutate({ id: reviewId, status: "rejected" })
-                        }
-                      >
-                        <Cancel />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => deleteMutation.mutate(reviewId)}>
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <ReviewFilters filters={filters} onFilterChange={handleFilterChange} />
+
+      <DataTable
+        columns={columns}
+        data={sortedReviews}
+        isLoading={isLoading}
+        renderRow={renderRow}
+        orderBy={orderBy}
+        order={order}
+        onRequestSort={handleRequestSort}
+        emptyMessage="نظری یافت نشد"
+      />
 
       <Snackbar open={toast.open} autoHideDuration={4000} onClose={handleClose}>
         <Alert severity={toast.severity} onClose={handleClose} variant="filled">
