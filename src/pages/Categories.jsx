@@ -1,38 +1,15 @@
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  LinearProgress,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Typography,
-  Snackbar,
-} from '@mui/material';
-import { Add, Delete, Edit } from '@mui/icons-material';
-import { useState } from 'react';
+import { Box } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { categoryApi } from '../api/services';
 import useToast from '../hooks/useToast';
 import ConfirmDialog from '../components/ConfirmDialog';
-
-const emptyCategory = {
-  name: '',
-  order: 0,
-  isActive: true,
-};
+import PageHeader from '../components/shared/PageHeader';
+import DataTable from '../components/shared/DataTable';
+import CategoryDialog from '../components/categories/CategoryDialog';
+import { useCategoryTable } from '../components/categories/CategoryTable';
+import { Add } from '@mui/icons-material';
+import { Snackbar, Alert } from '@mui/material';
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
@@ -43,6 +20,8 @@ export default function CategoriesPage() {
   const { toast, showToast, handleClose } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [orderBy, setOrderBy] = useState('');
+  const [order, setOrder] = useState('asc');
   const [confirmState, setConfirmState] = useState({
     open: false,
     target: null,
@@ -101,86 +80,85 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleRequestSort = property => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+
+  const sortedCategories = [...categories].sort((a, b) => {
+    if (!orderBy) return 0;
+
+    let aValue, bValue;
+
+    switch (orderBy) {
+      case 'name':
+        aValue = a.name || '';
+        bValue = b.name || '';
+        break;
+      case 'order':
+        aValue = Number(a.order) || 0;
+        bValue = Number(b.order) || 0;
+        break;
+      case 'isActive':
+        aValue = a.isActive ? 1 : 0;
+        bValue = b.isActive ? 1 : 0;
+        break;
+      default:
+        return 0;
+    }
+
+    if (typeof aValue === 'string') {
+      return order === 'asc'
+        ? aValue.localeCompare(bValue, 'fa')
+        : bValue.localeCompare(aValue, 'fa');
+    } else {
+      return order === 'asc' ? aValue - bValue : bValue - aValue;
+    }
+  });
+
+  const columns = [
+    { id: 'name', label: 'نام', sortable: true },
+    { id: 'order', label: 'ترتیب', sortable: true },
+    { id: 'isActive', label: 'فعال؟', sortable: true },
+    { id: 'actions', label: 'عملیات', align: 'right', sortable: false },
+  ];
+
+  const { renderRow } = useCategoryTable({
+    categories: sortedCategories,
+    onEdit: category => {
+      setEditing(category);
+      setDialogOpen(true);
+    },
+    onDelete: category => setConfirmState({ open: true, target: category }),
+  });
+
   return (
     <Box>
-      <Card sx={{ borderRadius: 4, mb: 3 }}>
-        <CardContent
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              مدیریت دسته‌بندی‌ها
-            </Typography>
-            <Typography color="text.secondary">
-              تعریف و مدیریت دسته‌بندی محصولات
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            دسته‌بندی جدید
-          </Button>
-        </CardContent>
-      </Card>
+      <PageHeader
+        title="مدیریت دسته‌بندی‌ها"
+        description="تعریف و مدیریت دسته‌بندی محصولات"
+        actionLabel="دسته‌بندی جدید"
+        actionIcon={<Add />}
+        onAction={() => {
+          setEditing(null);
+          setDialogOpen(true);
+        }}
+      />
 
-      {isLoading ? (
-        <LinearProgress />
-      ) : (
-        <TableContainer component={Card} sx={{ borderRadius: 4 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>نام</TableCell>
-                <TableCell>ترتیب</TableCell>
-                <TableCell>فعال؟</TableCell>
-                <TableCell align="right">عملیات</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {categories.map(cat => (
-                <TableRow key={cat.id || cat._id}>
-                  <TableCell>{cat.name}</TableCell>
-                  <TableCell>{cat.order ?? 0}</TableCell>
-                  <TableCell>{cat.isActive ? 'بله' : 'خیر'}</TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      color="primary"
-                      onClick={() => {
-                        setEditing(cat);
-                        setDialogOpen(true);
-                      }}
-                    >
-                      <Edit />
-                    </IconButton>
-                    <IconButton
-                      color="error"
-                      onClick={() =>
-                        setConfirmState({ open: true, target: cat })
-                      }
-                    >
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+      <DataTable
+        columns={columns}
+        data={sortedCategories}
+        isLoading={isLoading}
+        renderRow={renderRow}
+        orderBy={orderBy}
+        order={order}
+        onRequestSort={handleRequestSort}
+        emptyMessage="دسته‌بندی‌ای یافت نشد"
+      />
 
       <CategoryDialog
-        key={`${editing?.id || editing?._id || 'new'}-${
-          dialogOpen ? 'open' : 'closed'
-        }`}
+        key={`${editing?.id || editing?._id || 'new'}-${dialogOpen ? 'open' : 'closed'}`}
         open={dialogOpen}
         onClose={() => {
           setDialogOpen(false);
@@ -212,66 +190,5 @@ export default function CategoriesPage() {
         </Alert>
       </Snackbar>
     </Box>
-  );
-}
-
-function CategoryDialog({ open, onClose, category, onSubmit, loading }) {
-  const [values, setValues] = useState(() => category || emptyCategory);
-
-  const handleChange = event => {
-    const { name, value, type, checked } = event.target;
-    setValues(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const handleSubmit = event => {
-    event.preventDefault();
-    onSubmit(values);
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {category ? 'ویرایش دسته‌بندی' : 'دسته‌بندی جدید'}
-      </DialogTitle>
-      <DialogContent>
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-          <TextField
-            label="نام"
-            name="name"
-            value={values.name}
-            onChange={handleChange}
-            fullWidth
-            margin="normal"
-            required
-          />
-          <TextField
-            label="ترتیب"
-            name="order"
-            type="number"
-            value={values.order}
-            onChange={handleChange}
-            fullWidth
-            margin="normal"
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <Typography>فعال</Typography>
-            <Switch
-              checked={values.isActive}
-              name="isActive"
-              onChange={handleChange}
-            />
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>لغو</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={loading}>
-          ذخیره
-        </Button>
-      </DialogActions>
-    </Dialog>
   );
 }
